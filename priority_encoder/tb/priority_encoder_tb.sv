@@ -83,7 +83,7 @@ always @( negedge clk_i )
       else
         begin
           $display("%d tests completed with %d errors", num_vector, errors);
-          $finish;
+          $stop;
         end
     end
 

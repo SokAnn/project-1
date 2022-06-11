@@ -46,51 +46,51 @@ always_comb
       case( state )
         OFF: 
           begin
-            if( cmd_type_i == 0 && cmd_valid_i)      next_state = RED;
+            if( (cmd_type_i == 0) && cmd_valid_i)      next_state = RED;
           end
 
         RED:
           begin
-            if( cmd_type_i == 1 && cmd_valid_i)      next_state = OFF;
-            else if( cmd_type_i == 2 && cmd_valid_i) next_state = YELLOW_BLINKS;
-            else                                    next_state = RED_YELLOW;
+            if( (cmd_type_i == 1) && cmd_valid_i)      next_state = OFF;
+            else if( (cmd_type_i == 2) && cmd_valid_i) next_state = YELLOW_BLINKS;
+            else                                       next_state = RED_YELLOW;
           end
 
         RED_YELLOW: 
           begin
-            if( cmd_type_i == 1 && cmd_valid_i)      next_state = OFF;
-            else if( cmd_type_i == 2 && cmd_valid_i) next_state = YELLOW_BLINKS;
-            else if( cmd_type_i == 3 && cmd_valid_i) next_state = GREEN;
+            if( (cmd_type_i == 1) && cmd_valid_i)      next_state = OFF;
+            else if( (cmd_type_i == 2) && cmd_valid_i) next_state = YELLOW_BLINKS;
+            else if( (cmd_type_i == 3) && cmd_valid_i) next_state = GREEN;
           end
 
         GREEN: 
           begin
-            if( cmd_type_i == 1 && cmd_valid_i)      next_state = OFF;
-            else if( cmd_type_i == 2 && cmd_valid_i) next_state = YELLOW_BLINKS;
-            else                                    next_state = GREEN_BLINKS;
+            if( (cmd_type_i == 1) && cmd_valid_i)      next_state = OFF;
+            else if( (cmd_type_i == 2) && cmd_valid_i) next_state = YELLOW_BLINKS;
+            else                                       next_state = GREEN_BLINKS;
           end
 
         GREEN_BLINKS: 
           begin
-            if( cmd_type_i == 1 && cmd_valid_i)      next_state = OFF;
-            else if( cmd_type_i == 2 && cmd_valid_i) next_state = YELLOW_BLINKS;
-            else if( cmd_type_i == 4 && cmd_valid_i) next_state = YELLOW;
+            if( (cmd_type_i == 1) && cmd_valid_i)      next_state = OFF;
+            else if( (cmd_type_i == 2) && cmd_valid_i) next_state = YELLOW_BLINKS;
+            else if( (cmd_type_i == 4) && cmd_valid_i) next_state = YELLOW;
           end
 
         YELLOW: 
           begin
-            if( cmd_type_i == 1 && cmd_valid_i)      next_state = OFF;
-            else if( cmd_type_i == 2 && cmd_valid_i) next_state = YELLOW_BLINKS;
-            else if( cmd_type_i == 5 && cmd_valid_i) next_state = RED;
+            if( (cmd_type_i == 1) && cmd_valid_i)      next_state = OFF;
+            else if( (cmd_type_i == 2) && cmd_valid_i) next_state = YELLOW_BLINKS;
+            else if( (cmd_type_i == 5) && cmd_valid_i) next_state = RED;
           end
 
         YELLOW_BLINKS: 
           begin
-            if( cmd_type_i == 0 && cmd_valid_i)      next_state = RED;
-            else if( cmd_type_i == 1 && cmd_valid_i) next_state = OFF;
+            if( (cmd_type_i == 0) && cmd_valid_i)      next_state = RED;
+            else if( (cmd_type_i == 1) && cmd_valid_i) next_state = OFF;
           end
       
-        default:                                    next_state = OFF;
+        default:                                       next_state = OFF;
       endcase
   end
 
