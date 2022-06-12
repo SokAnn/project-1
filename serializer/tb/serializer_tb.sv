@@ -26,7 +26,7 @@ serializer serializer_ins(
 );
 
 logic [6:0] errors        = '0;
-logic [2:0] test_vectors [50:0];
+logic [23:0] test_vectors [50:0];
 logic [6:0] num_vector    = '0;
 logic [2:0] o_expected;
 
@@ -39,28 +39,22 @@ initial
 initial
   begin
     $readmemb("test.tv", test_vectors);
-    #25;
+    #3;
     @( posedge clk_i )
     srst_i <= 1'b1;
 
     @( posedge clk_i )
     srst_i <= 1'b0;
-    data_i <= 16'b1111_0000_1111_0000;
-    data_mod_i <= 0;
-    data_val_i <= 1;
-    
-    @( posedge clk_i )
-    data_val_i <= 0;
   end
 
 always @( posedge clk_i )
-  #1 o_expected = test_vectors[num_vector];
+  {data_i, data_mod_i, data_val_i, o_expected} = {test_vectors[num_vector][23:8], test_vectors[num_vector][7:4], test_vectors[num_vector][3], test_vectors[num_vector][2:0]};
    
 
 always @( negedge clk_i )
-  if( ~srst_i )
+  if( !srst_i )
     begin
-      if( num_vector != 18 )
+      if( num_vector != 40 )
         begin
           if( busy_o !== o_expected[0] )
             begin

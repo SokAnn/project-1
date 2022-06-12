@@ -11,85 +11,131 @@ module serializer (
   output logic        busy_o
 );
 
-logic [15:0] buffer;
-logic [3:0]  temp;
+logic [4:0]  temp;
 logic        val;
-logic        end_flag;
 
+// val logic
 always_ff @( posedge clk_i )
-  if( srst_i )
-    begin
-      ser_data_o     <= 1'b0;
+  begin
+    if( srst_i )
+      val <= 1'b0;
+    else
+      if( data_val_i )
+        begin
+          if( data_mod_i != 4'b0001 && data_mod_i != 4'b0010 )
+            val <= 1'b1;
+          else
+            val <= 1'b0;
+        end
+      else
+        begin
+          if( val )
+            if( data_mod_i != 4'b0001 && data_mod_i != 4'b0010 )
+              if ( data_mod_i != 4'b0000 )
+                if( temp > ( 15 - data_mod_i ) + 1 )
+                  val <= 1'b1;
+                else
+                  val <= 1'b0;
+              else
+                if( temp != 0 )
+                  val <= 1'b1;
+                else
+                  val <= 1'b0;
+        end
+  end
+
+// ser_data_o logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      ser_data_o <= 1'b0;
+    else
+      if( val )
+        if( data_mod_i != 4'b0001 && data_mod_i != 4'b0010 )
+          ser_data_o <= data_i[temp];
+  end
+
+// ser_data_val_o logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
       ser_data_val_o <= 1'b0;
-      busy_o         <= 1'b0;
-      
-      buffer         <= '0;
-      val            <= 1'b0;
-      end_flag       <= 1'b0;
-    end
-
-always_ff @( posedge clk_i )
-  if( !busy_o )
-    if( data_val_i )
+    else
       begin
-        buffer <= data_i;
-        temp   <= '1;
-        val    <= 1'b1;
-        busy_o <= 1'b1;
-      end
-
-always_ff @( posedge clk_i )
-  if( val )
-    if( data_mod_i != 4'b0001 && data_mod_i != 4'b0010 )
-      begin
-        if ( data_mod_i != 4'b0000 )
+        if( val )
           begin
-            if( temp != (15 - data_mod_i) )
-              begin
-                busy_o         <= 1'b1;
-                ser_data_o     <= data_i[temp];
-                temp           <= temp - 1;
-                ser_data_val_o <= 1'b1;
-              end
-            else
-              begin
-                ser_data_o     <= 1'b0;
-                ser_data_val_o <= 1'b0;
-                busy_o         <= 1'b0;
-      
-                buffer         <= '0;
-                val            <= 1'b0;
-                temp           <= '0;
-              end
+            if( data_mod_i != 4'b0001 && data_mod_i != 4'b0010 )
+              if ( data_mod_i != 4'b0000 )
+                if( temp != ( 15 - data_mod_i ) )
+                  ser_data_val_o <= 1'b1;
+                else
+                  ser_data_val_o <= 1'b0;
+              else
+                if( temp != -1 )
+                  ser_data_val_o <= 1'b1;
+                else
+                  ser_data_val_o <= 1'b0;
           end
         else
-          begin
-            if( temp != 0 )
-              begin
-                busy_o         <= 1'b1;
-                ser_data_o     <= data_i[temp];
-                temp           <= temp - 1;
-                ser_data_val_o <= 1'b1;
-              end
+          ser_data_val_o <= 1'b0;
+      end
+  end
+
+// busy_o logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      busy_o <= 1'b0;
+    else
+      if( data_val_i )
+        begin
+          if( data_mod_i != 4'b0001 && data_mod_i != 4'b0010 )
+            busy_o <= 1'b1;
+          else
+            busy_o <= 1'b0;
+        end
+      else
+        if( val )
+          if( data_mod_i != 4'b0001 && data_mod_i != 4'b0010 )
+            if ( data_mod_i != 4'b0000 )
+              if( temp > ( 15 - data_mod_i ) + 1 )
+                 busy_o <= 1'b1;
+               else
+                 busy_o <= 1'b0;
             else
-              begin
-                ser_data_o <= data_i[temp];
-                end_flag   <= 1;
-                busy_o     <= 1'b0;
-              end
+                if( temp != 0 )
+                  busy_o <= 1'b1;
+                else
+                  busy_o <= 1'b0;
+        else
+          busy_o <= 1'b0;
+  end
+
+// temp bit logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      temp <= '0;
+    else
+      begin
+        if( data_val_i )
+          temp <= 5'b01111;
+        else
+          begin
+            if( val )
+              if( data_mod_i != 4'b0001 && data_mod_i != 4'b0010 )
+                begin
+                  if( data_mod_i != 4'b0000 )
+                    if( temp != ( 15 - data_mod_i ) )
+                      temp <= temp - 5'b00001;
+                    else
+                      temp <= '0;
+                  else
+                    if( temp != -1 )
+                      temp <= temp - 5'b00001;
+                end
           end
       end
-
-always_ff @( posedge clk_i )
-  if( end_flag )
-    begin
-      ser_data_o     <= 1'b0;
-      ser_data_val_o <= 1'b0;
-      
-      buffer         <= '0;
-      val            <= 1'b0;
-      temp           <= '0;
-      end_flag       <= 1'b0;
-    end
-
+  end
+   
 endmodule
