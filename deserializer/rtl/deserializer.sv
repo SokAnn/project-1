@@ -8,41 +8,47 @@ module deserializer (
   output logic        deser_data_val_o
 );
 
-logic [5:0]  temp_i;
+logic [4:0]  temp_i;
 logic [15:0] temp;
 
+// deser_data_o logic
 always_ff @( posedge clk_i )
-  if( srst_i )
-    begin
-      deser_data_o     <= 1'b0;
-      deser_data_val_o <= 1'b0;
+  begin
+    if( srst_i )
+      deser_data_o <= '0;
+    else
+      if( temp_i == 5'b11111 )
+        deser_data_o <= temp;
+  end
 
-      temp_i           <= '0;
-      temp             <= '0;
-    end
-  else
-    begin
+// deser_data_val_o logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      deser_data_val_o <= 1'b0;
+    else
+      if( temp_i == 5'b11111 )
+        deser_data_val_o <= 1'b1;
+  end
+
+// temp bit logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      temp_i <= 5'b01111;
+    else
       if( data_val_i )
-        begin
-          temp[temp_i] <= data_i;
-          temp_i       <= temp_i + 1;
-        end
-      deser_data_o <= temp;
-    end
+        temp_i <= temp_i - 5'b00001;
+  end
 
+// temp bit logic
 always_ff @( posedge clk_i )
-  if( temp_i > 15)
-    begin
-      deser_data_o     <= temp;
-      deser_data_val_o <= 1'b1;
-    end
-
-always_ff @(posedge clk_i)
-  if( deser_data_val_o )
-    begin
-      deser_data_val_o <= 1'b0;
-      temp             <= '0;
-      temp_i           <= '0;
-    end
+  begin
+    if( srst_i )
+      temp <= '0;
+    else
+      if( data_val_i )
+        temp[temp_i] <= data_i;
+  end
 
 endmodule
