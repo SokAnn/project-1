@@ -22,12 +22,12 @@ bit_population_counter #(
   .data_val_o       ( data_val_o       )
 );
 
-logic [8:0]               errors        = '0;
-logic [$clog2(WIDTH)+1:0] test_vectors [50:0];
-logic [6:0]               num_vector    = '0;
+logic [8:0]                       errors        = '0;
+logic [($clog2(WIDTH)+WIDTH+2):0] test_vectors [50:0];
+logic [6:0]                       num_vector    = '0;
 
-logic             val_expected;
-logic [$clog2(WIDTH):0] o_expected;
+logic                             val_expected;
+logic [$clog2(WIDTH):0]           o_expected;
 
 initial
   begin
@@ -39,27 +39,20 @@ initial
 initial
   begin
     $readmemb("test.tv", test_vectors);
-    #27;
+    #7;
     srst_i <= 1;
     @( posedge clk_i )
     srst_i <= 0;
-    // example
-    data_val_i <= 0;
-    data_i     <= 'b1110_0111_0000_1111;
-    //@( posedge clk_i )
-    data_val_i <= 1;
-    @( posedge clk_i )
-    data_val_i <= 0;
   end
 
-
 always @( posedge clk_i )
-  #1 {val_expected, o_expected} = {test_vectors[num_vector][$clog2(WIDTH)+1], test_vectors[num_vector][$clog2(WIDTH):0]};
+  #1 {data_i, data_val_i, val_expected, o_expected} = { test_vectors[num_vector][$clog2(WIDTH)+WIDTH+2:$clog2(WIDTH)+3], test_vectors[num_vector][$clog2(WIDTH)+2], 
+                                                        test_vectors[num_vector][$clog2(WIDTH)+1], test_vectors[num_vector][$clog2(WIDTH):0] };
    
 always @( negedge clk_i )
   if( !srst_i )
     begin
-      if( num_vector != 19 )
+      if( num_vector != 20 )
         begin
           if( data_val_o !== val_expected )
             begin
