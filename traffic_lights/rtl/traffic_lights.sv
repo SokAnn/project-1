@@ -25,192 +25,195 @@ logic state_flag;
 
 // state register
 always_ff @( posedge clk_i )
-  if( srst_i )
-    begin
-      state      <= OFF;
-      count      <= '0;
+  begin
+    if( srst_i )
+      state <= OFF;
+    else
+      state <= next_state;
+  end
+
+// state_flag logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
       state_flag <= 1'b0;
-    end
-  else
-    //if( cmd_valid_i )
+    else
       begin
-        state      <= next_state;
-        count      <= '0;
-        state_flag <= 1'b1;
+        if( next_state == RED  || next_state == YELLOW || next_state == GREEN)
+          if( count >= (cmd_data_i * 2 - 1) )
+            state_flag <= 1'b0;
+          else
+            state_flag <= 1'b1;
+        else
+          if( next_state == RED_YELLOW )
+            if( count >= (STATE_RY_MS * 2 - 1) )
+              state_flag <= 1'b0;
+            else
+              state_flag <= 1'b1;
+        else
+          if( next_state == GREEN_BLINKS )
+            if( count >= (G_BLINK_T - 1) )
+              state_flag <= 1'b0;
+            else
+              state_flag <= 1'b1;
+        else
+          if( next_state == YELLOW_BLINKS )
+            if( count >= (BLINK_Y_MS * 2 - 1) )
+              state_flag <= 1'b0;
+            else
+              state_flag <= 1'b1;
+        else
+          state_flag <= 1'b0;
       end
+  end
+
+// count logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      count <= '0;
+    else
+      begin
+        // red/yellow/green state
+        if( next_state == RED || next_state == GREEN || next_state == YELLOW )
+          if( count < (cmd_data_i * 2 - 1) )
+            count <= count + 1'(1);
+          else
+            count <= '0;
+
+        // red & yellow state
+        if( next_state == RED_YELLOW )
+          if( count < (STATE_RY_MS * 2 - 1) )
+            count <= count + 1'(1);
+          else
+            count <= '0;
+
+        // green blinks state
+        if( next_state == GREEN_BLINKS )
+          if( count < (G_BLINK_T - 1) )
+            count <= count + 1'(1);
+          else
+            count <= '0;
+        
+        // yellow blinks state
+        if( next_state == YELLOW_BLINKS )
+          if( count < (BLINK_Y_MS * 2 - 1) )
+            count <= count + 1'(1);
+          else
+            count <= '0;
+      end
+  end
+
+// red_l logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      red_l <= 1'b0;
+    else
+      begin
+        // red/red & yellow state
+        if( next_state == RED || next_state == RED_YELLOW )
+          red_l <= 1'b1;
+        else
+          red_l <= 1'b0; // green/green blinks/yellow/yellow blinks/off state
+      end
+  end
+
+// yellow_l logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      yellow_l <= 1'b0;
+    else
+      begin
+        // red/green/green blinks/off state
+        if( next_state == RED || next_state == GREEN || next_state == GREEN_BLINKS || next_state == OFF)
+          yellow_l <= 1'b0;
+        else
+          if( next_state == YELLOW || next_state == RED_YELLOW )
+            yellow_l <= 1'b1;  // yellow/red & yellow state
+        else
+          if( next_state == YELLOW_BLINKS )
+            yellow_l <= !yellow_l;  // yellow blinks state
+      end
+  end
+
+// green_l logic
+always_ff @( posedge clk_i )
+  begin
+    if( srst_i )
+      green_l <= 1'b0;
+    else
+      begin
+        // red/red & yellow/yellow/yellow blinks/off state
+        if( next_state == RED || next_state == RED_YELLOW || next_state == YELLOW || next_state == YELLOW_BLINKS || next_state == OFF)
+          green_l <= 1'b0;
+        else
+          if( next_state == GREEN )
+            green_l <= 1'b1; // green state
+        else
+          if( next_state == GREEN_BLINKS )
+            green_l <= !green_l; // green blinks state
+      end
+  end
 
 // next state logic
 always_comb
   begin
-    if( !state_flag  )
-      case( state )
-        OFF: 
-          begin
-            if( (cmd_type_i == 0) && cmd_valid_i)      next_state = RED;
-          end
+    next_state = state;
+    case( state )
+      OFF: 
+        begin
+          if( (cmd_type_i == 0) && cmd_valid_i && !state_flag )      next_state = RED;
+          else if( !state_flag )                                     next_state = OFF;
+        end
 
-        RED:
-          begin
-            if( (cmd_type_i == 1) && cmd_valid_i)      next_state = OFF;
-            else if( (cmd_type_i == 2) && cmd_valid_i) next_state = YELLOW_BLINKS;
-            else                                       next_state = RED_YELLOW;
-          end
+      RED:
+        begin
+          if( (cmd_type_i == 1) && cmd_valid_i && !state_flag )      next_state = OFF;
+          else if( (cmd_type_i == 2) && cmd_valid_i && !state_flag ) next_state = YELLOW_BLINKS;
+          else if( !state_flag )                                     next_state = RED_YELLOW;
+        end
 
-        RED_YELLOW: 
-          begin
-            if( (cmd_type_i == 1) && cmd_valid_i)      next_state = OFF;
-            else if( (cmd_type_i == 2) && cmd_valid_i) next_state = YELLOW_BLINKS;
-            else if( (cmd_type_i == 3) && cmd_valid_i) next_state = GREEN;
-          end
+      RED_YELLOW: 
+        begin
+          if( (cmd_type_i == 1) && cmd_valid_i && !state_flag )      next_state = OFF;
+          else if( (cmd_type_i == 2) && cmd_valid_i && !state_flag ) next_state = YELLOW_BLINKS;
+          else if( (cmd_type_i == 3) && cmd_valid_i && !state_flag ) next_state = GREEN;
+        end
 
-        GREEN: 
-          begin
-            if( (cmd_type_i == 1) && cmd_valid_i)      next_state = OFF;
-            else if( (cmd_type_i == 2) && cmd_valid_i) next_state = YELLOW_BLINKS;
-            else                                       next_state = GREEN_BLINKS;
-          end
+      GREEN: 
+        begin
+          if( (cmd_type_i == 1) && cmd_valid_i && !state_flag )      next_state = OFF;
+          else if( (cmd_type_i == 2) && cmd_valid_i && !state_flag ) next_state = YELLOW_BLINKS;
+          else if( !state_flag )                                     next_state = GREEN_BLINKS;
+        end
 
-        GREEN_BLINKS: 
-          begin
-            if( (cmd_type_i == 1) && cmd_valid_i)      next_state = OFF;
-            else if( (cmd_type_i == 2) && cmd_valid_i) next_state = YELLOW_BLINKS;
-            else if( (cmd_type_i == 4) && cmd_valid_i) next_state = YELLOW;
-          end
+      GREEN_BLINKS: 
+        begin
+          if( (cmd_type_i == 1) && cmd_valid_i && !state_flag )      next_state = OFF;
+          else if( (cmd_type_i == 2) && cmd_valid_i && !state_flag ) next_state = YELLOW_BLINKS;
+          else if( (cmd_type_i == 4) && cmd_valid_i && !state_flag ) next_state = YELLOW;
+        end
 
-        YELLOW: 
-          begin
-            if( (cmd_type_i == 1) && cmd_valid_i)      next_state = OFF;
-            else if( (cmd_type_i == 2) && cmd_valid_i) next_state = YELLOW_BLINKS;
-            else if( (cmd_type_i == 5) && cmd_valid_i) next_state = RED;
-          end
+      YELLOW: 
+        begin
+          if( (cmd_type_i == 1) && cmd_valid_i && !state_flag )      next_state = OFF;
+          else if( (cmd_type_i == 2) && cmd_valid_i && !state_flag ) next_state = YELLOW_BLINKS;
+          else if( (cmd_type_i == 5) && cmd_valid_i && !state_flag ) next_state = RED;
+        end
 
-        YELLOW_BLINKS: 
-          begin
-            if( (cmd_type_i == 0) && cmd_valid_i)      next_state = RED;
-            else if( (cmd_type_i == 1) && cmd_valid_i) next_state = OFF;
-          end
+      YELLOW_BLINKS: 
+        begin
+          if( (cmd_type_i == 0) && cmd_valid_i && !state_flag )      next_state = RED;
+          else if( (cmd_type_i == 1) && cmd_valid_i && !state_flag ) next_state = OFF;
+        end
       
-        default:                                       next_state = OFF;
-      endcase
+      default:                                                       next_state = OFF;
+    endcase
   end
 
-// RED
-always_ff @( posedge clk_i )
-  if( next_state == RED )
-    begin
-      if( count < (cmd_data_i * 2 - 1) )
-        begin
-          count    <= count + 1;
-          red_l    <= 1'b1;
-          yellow_l <= 1'b0;
-          green_l  <= 1'b0;
-        end
-      else
-        begin
-          count      <= '0;
-          state      <= next_state;
-          state_flag <= 1'b0;
-        end
-    end
-
-// RED_YELLOW
-always_ff @( posedge clk_i )
-  if( next_state == RED_YELLOW )
-    begin
-      if( count < (STATE_RY_MS * 2 - 1) )
-        begin
-          count    <= count + 1;
-          red_l    <= 1'b1;
-          yellow_l <= 1'b1;
-          green_l  <= 1'b0;
-        end
-      else
-        begin
-          count      <= '0;
-          state      <= next_state;
-          state_flag <= 1'b0;
-        end
-    end
-
-// GREEN
-always_ff @( posedge clk_i )
-  if( next_state == GREEN )
-    begin
-      if( count < (cmd_data_i * 2 - 1) )
-        begin
-          count    <= count + 1;
-          red_l    <= 1'b0;
-          yellow_l <= 1'b0;
-          green_l  <= 1'b1;
-        end
-      else
-        begin
-          count      <= '0;
-          state      <= next_state;
-          state_flag <= 1'b0;
-        end
-    end
-
-// GREEN_BLINKS
-always_ff @( posedge clk_i )
-  if( next_state == GREEN_BLINKS )
-    begin
-      if( count < (G_BLINK_T - 1) )
-        begin
-          count    <= count + 1;
-          red_l    <= 1'b0;
-          yellow_l <= 1'b0;
-          green_l  <= ~green_l;
-        end
-      else
-        begin
-          green_l    <= !green_l;
-          count      <= '0;
-          state      <= next_state;
-          state_flag <= 1'b0;
-        end
-    end
-
-// YELLOW
-always_ff @( posedge clk_i )
-  if( next_state == YELLOW )
-    begin
-      if( count < (cmd_data_i * 2 - 1) )
-        begin
-          count    <= count + 1;
-          red_l    <= 1'b0;
-          yellow_l <= 1'b1;
-          green_l  <= 1'b0;
-        end
-      else
-        begin
-          count      <= '0;
-          state      <= next_state;
-          state_flag <= 1'b0;
-        end
-    end
-
-// YELLOW_BLINKS
-always_ff @( posedge clk_i )
-  if( next_state == YELLOW_BLINKS )
-    begin
-      if( count < (BLINK_Y_MS * 2 - 1) )
-        begin
-          count    <= count + 1;
-          red_l    <= 1'b0;
-          yellow_l <= !yellow_l;
-          green_l  <= 1'b0;
-        end
-      else
-        begin
-          yellow_l   <= ~yellow_l;
-          count      <= '0;
-          state      <= next_state;
-          state_flag <= 1'b0;
-        end
-    end
-
-// output logic
+//output logic
 assign red_o    = red_l;
 assign yellow_o = yellow_l;
 assign green_o  = green_l;

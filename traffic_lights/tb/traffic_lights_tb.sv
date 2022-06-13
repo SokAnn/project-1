@@ -2,6 +2,10 @@
 
 module traffic_lights_tb;
 
+parameter BLINK_Y_MS  = 5;
+parameter G_BLINK_T   = 4;
+parameter STATE_RY_MS = 3;
+
 logic        clk_i;
 logic        srst_i;
 logic [2:0]  cmd_type_i;
@@ -12,7 +16,11 @@ logic        red_o;
 logic        yellow_o;
 logic        green_o;
 
-traffic_lights traffic_lights (
+traffic_lights #(
+  .BLINK_Y_MS  ( BLINK_Y_MS  ),
+  .G_BLINK_T   ( G_BLINK_T   ),
+  .STATE_RY_MS ( STATE_RY_MS )
+) traffic_lights (
   .clk_i       ( clk_i       ),
   .srst_i      ( srst_i      ),
   .cmd_type_i  ( cmd_type_i  ),
