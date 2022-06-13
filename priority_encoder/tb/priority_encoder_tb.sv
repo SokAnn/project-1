@@ -24,13 +24,13 @@ priority_encoder #(
   .deser_data_val_o ( deser_data_val_o )
 );
 
-logic [7:0] errors        = '0;
-logic [2*WIDTH:0] test_vectors [50:0];
-logic [6:0] num_vector    = '0;
+logic [7:0]         errors          = '0;
+logic [3*WIDTH+1:0] test_vectors   [50:0];
+logic [6:0]         num_vector      = '0;
 
-logic [WIDTH-1:0] left_expected;
-logic [WIDTH-1:0] right_expected;
-logic        val_expected;
+logic [WIDTH-1:0]   left_expected;
+logic [WIDTH-1:0]   right_expected;
+logic               val_expected;
 
 initial
   begin
@@ -42,26 +42,20 @@ initial
 initial
   begin
     $readmemb("test.tv", test_vectors);
-    #27;
+    #7;
     srst_i <= 1;
     @( posedge clk_i )
     srst_i <= 0;
-    // example
-    data_val_i <= 0;
-    data_i     <= 'b0000_1000_0100_0000;
-    @( posedge clk_i )
-    data_val_i <= 1;
-    @( posedge clk_i )
-    data_val_i <= 0;  
   end
 
 always @( posedge clk_i )
-  #1 {left_expected, right_expected, val_expected} = {test_vectors[num_vector][2*WIDTH:WIDTH+2], test_vectors[num_vector][WIDTH+1:1], test_vectors[num_vector][0]};
+  #1 {data_i, data_val_i, left_expected, right_expected, val_expected} = { test_vectors[num_vector][3*WIDTH+1:2*WIDTH+2], test_vectors[num_vector][2*WIDTH+1], 
+                                                                           test_vectors[num_vector][2*WIDTH:WIDTH+2], test_vectors[num_vector][WIDTH+1:1], test_vectors[num_vector][0] };
    
 always @( negedge clk_i )
   if( !srst_i )
     begin
-      if( num_vector != 6 )
+      if( num_vector != 12 )
         begin
           if( data_left_o !== left_expected )
             begin
