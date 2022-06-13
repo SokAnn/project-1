@@ -55,19 +55,4 @@ always @( negedge clk_i )
       end
   end
 
-
-/*initial
-  begin
-  key_i <= 0;   #50;
-  key_i <= 1;   #100;
-  key_i <= 0;   #100;
-  key_i <= 1;   #100;
-  key_i <= 0;   #100;
-  key_i <= 1;   #700;
-  key_i <= 0;
-  #500;
-  key_i <= 1;
-  //$stop;
-  end*/
-
 endmodule
