@@ -12,7 +12,7 @@ logic        ser_data_val_o;
 logic        busy_o;
 
 logic [4:0]  cnt;
-logic        end_flag;
+logic [5:0]  task_ex = '0;
 
 serializer serializer_ins (
   .clk_i         ( clk_i          ),
@@ -27,57 +27,53 @@ serializer serializer_ins (
   .busy_o        ( busy_o         )
 );
 
-mailbox #(logic) mb_expected = new(39);
-mailbox #(logic) mb_output   = new(39);
+mailbox #(logic) mb_expected = new();
+mailbox #(logic) mb_output   = new();
 
 task generate_data ();
-  for ( int i = 0; i < 32; i++ )
-    begin
-      ##1;
-      data_i     <= ( i % 2 ) ? ( 16'hffff ) : ( $urandom() );
-      data_val_i <= ( i % 2 ) ? ( 1'b0 ) : ( 1'b1 );
-      data_mod_i <= i / 2;
-    end
-  ##20 end_flag <= 1'b1;
-endtask
+  logic [15:0] buff;
 
-task check_data ();
-  logic [3:0] mod;
-  
-  while( !end_flag )
+  while( task_ex < 6'd32 )
     begin
       ##1;
-      if( cnt == 5'd16 )
+      data_val_i <= ( task_ex % 2 ) ? ( 1'b0 ) : ( 1'b1 );
+      data_i     <= ( task_ex % 2 ) ? ( 16'hffff ) : ( $urandom() );
+      
+      if( data_i != 16'hffff )
+        buff = data_i;
+
+      if( !busy_o )
         begin
-        if( data_val_i )
-          if( data_mod_i != 4'd1 && data_mod_i != 4'd2 )
-            begin
-              mod = data_mod_i;
-              cnt =  data_mod_i;
-              if( data_mod_i != 4'd0 )
-                for( int i = 15; i > ( 15 - data_mod_i ); i-- )
-                  mb_expected.put( data_i[i] );
-              else
-                for( int i = 15; i >= 0; i-- )
-                  mb_expected.put( data_i[i] );
-            end
+          data_mod_i <= task_ex / 2;
+          task_ex    <= task_ex + 6'd1;
+          cnt <= 5'd15;
         end
       else
-        if( mod == 0 )
-          if( cnt != 5'd16  )
-            cnt = cnt + 5'd1;
+        begin
+          if( data_mod_i != 4'd0 )
+            begin
+              if( cnt != 15 - data_mod_i )
+                begin
+                  cnt <= cnt - 5'd1;
+                  mb_expected.put( buff[cnt] );
+                end
+            end
           else
-            cnt = 5'd15;
-        else
-          if( cnt != 5'd1 )
-            cnt = cnt - 5'd1;
-          else
-            cnt = 5'd16;
+            begin
+              if( cnt != 5'd0  )
+                begin
+                  cnt <= cnt - 5'd1;
+                  mb_expected.put( buff[cnt] );
+                end
+              else
+                mb_expected.put( buff[cnt] );
+            end
+        end
     end
 endtask
 
 task check_output ();
-  while( !end_flag )
+  forever
     begin
       ##1;
       if( ser_data_val_o )
@@ -106,15 +102,12 @@ initial
     srst_i <= 1'b1;
     ##1;
     srst_i <= 1'b0;
-    cnt = 5'd16;
-    end_flag = 1'b0;
     $display("Starting tests...");
 
     fork
       generate_data();
-      check_data();
       check_output();
-    join
+    join_any
     
     if( mb_expected.num() != mb_output.num() )
       begin
@@ -132,8 +125,8 @@ initial
             if( expected != outpt )
               errors = errors + 1;
           end
+        $display("Tests completed with ( %d ) errors.", errors);
       end
-    $display("Tests completed with ( %d ) errors.", errors);
     $stop;
   end
 
