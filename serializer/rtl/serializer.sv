@@ -40,33 +40,29 @@ always_ff @( posedge clk_i )
               val <= 1'b0;
   end
 
+logic mod_ok;
+assign mod_ok = ( data_mod_i != 4'd1 ) && ( data_mod_i != 4'd2 );
+
 // buffer logic
 always_ff @( posedge clk_i )
   begin
-    if( !srst_i )
-      if( !busy_o )
-        if( data_mod_i != 4'd1 && data_mod_i != 4'd2 )
-          if( data_val_i )
-            buffer <= data_i;
+    if( !busy_o && data_val_i && mod_ok )
+      buffer <= data_i;
   end
 
 // data_mod logic
 always_ff @( posedge clk_i )
   begin
-    if( !srst_i )
-      if( !busy_o )
-        if( data_mod_i != 4'd1 && data_mod_i != 4'd2 )
-          if( data_val_i )
-            data_mod <= data_mod_i;
+  if( !busy_o && data_val_i && mod_ok )
+    data_mod <= data_mod_i;
   end
 
 // ser_data_o logic
 always_ff @( posedge clk_i )
   begin
-    if( !srst_i )
-      if( val )
-        if( data_mod != 4'd1 && data_mod != 4'd2 )
-          ser_data_o <= buffer[temp];
+    if( val )
+      if( data_mod != 4'd1 && data_mod != 4'd2 )
+        ser_data_o <= buffer[temp];
   end
 
 // ser_data_val_o logic
