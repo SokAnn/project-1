@@ -24,13 +24,63 @@ priority_encoder #(
   .deser_data_val_o ( deser_data_val_o )
 );
 
-logic [7:0]         errors          = '0;
-logic [3*WIDTH+1:0] test_vectors   [50:0];
-logic [6:0]         num_vector      = '0;
+logic [7:0] errors  = '0;
+logic [5:0] task_ex = '0;
 
-logic [WIDTH-1:0]   left_expected;
-logic [WIDTH-1:0]   right_expected;
-logic               val_expected;
+typedef struct {
+  logic [WIDTH-1:0] left;
+  logic [WIDTH-1:0] right;
+} task_t;
+
+mailbox #( task_t ) mb_expected = new();
+mailbox #( task_t ) mb_real     = new();
+
+task_t expected, outpt;
+
+task generate_data();
+  task_t buff;
+  
+  while( task_ex < 6'd63 )
+    begin
+      ##1;
+      data_i     <= $urandom_range( 0, ( 2 ** WIDTH - 1 ) );
+      data_val_i <= $urandom_range( 0, 1 );
+      
+      buff.left = '0;
+      buff.right = '0;
+      if( data_val_i === 1'b1 )
+        begin
+          for( int i = WIDTH - 1; i >= 0; i-- )
+            begin
+              if( data_i[i] == 1'b1 )
+                begin
+                  buff.left[i] = 1'b1;
+                  break;
+                end
+            end
+          for( int i = 0; i <= WIDTH - 1; i++ )
+            begin
+              if( data_i[i] == 1'b1 )
+                begin
+                  buff.right[i] = 1'b1;
+                  break;
+                end
+            end
+          mb_expected.put( buff );
+          task_ex <= task_ex + 7'd1;
+        end
+    end
+endtask
+
+task check_output();
+  forever
+    begin
+      ##1;
+      if( deser_data_val_o === 1'b1 )
+        mb_real.put( { data_left_o, data_right_o } );
+    end
+endtask
+
 
 initial
   begin
@@ -39,46 +89,46 @@ initial
       #5 clk_i = ~clk_i;
   end
 
+default clocking cb
+  @ (posedge clk_i);
+endclocking
+
 initial
   begin
-    $readmemb("test.tv", test_vectors);
-    #7;
-    srst_i <= 1;
-    @( posedge clk_i )
-    srst_i <= 0;
-  end
+    srst_i <= 1'b0;
+    ##1;
+    srst_i <= 1'b1;
+    ##1;
+    srst_i <= 1'b0;
 
-always @( posedge clk_i )
-  #1 {data_i, data_val_i, left_expected, right_expected, val_expected} = { test_vectors[num_vector][3*WIDTH+1:2*WIDTH+2], test_vectors[num_vector][2*WIDTH+1], 
-                                                                           test_vectors[num_vector][2*WIDTH:WIDTH+2], test_vectors[num_vector][WIDTH+1:1], test_vectors[num_vector][0] };
-   
-always @( negedge clk_i )
-  if( !srst_i )
-    begin
-      if( num_vector != 12 )
-        begin
-          if( data_left_o !== left_expected )
-            begin
-              $display("data_left_o failed (%d)", num_vector);
-              errors <= errors + 1;
-            end
-          if( data_right_o !== right_expected )
-            begin
-              $display("data_right_o failed (%d)", num_vector);
-              errors <= errors + 1;
-            end
-          if( deser_data_val_o !== val_expected )
-            begin
-              $display("deser_data_val_o failed (%d)", num_vector);
-              errors <= errors + 1;
-            end
-          num_vector <= num_vector + 1;
-        end
-      else
-        begin
-          $display("%d tests completed with %d errors", num_vector, errors);
-          $stop;
-        end
-    end
+    $display("Starting tests...");
+    
+    fork
+      generate_data();
+      check_output();
+    join_any
+    
+    if( mb_expected.num() != mb_real.num() )
+      begin
+        $display("Error: mailbox(es) size. ");
+        $display("Size mailboxes: ( %d ) ( %d )", mb_expected.num(), mb_real.num());
+      end
+    else
+      begin
+        $display("Size mailboxes: ( %d ) ( %d )", mb_expected.num(), mb_real.num());
+        while( mb_expected.num() != 0 )
+          begin
+            mb_expected.get( expected );
+            mb_real.get( outpt );
+            $display("Expected output : ( %b )( %b )", expected.left, expected.right);
+            $display("Real output:      ( %b )( %b )", outpt.left, outpt.right);
+            $display("----------------");
+            if( expected !== outpt )
+              errors = errors + 1;
+          end
+        $display("Tests completed with ( %d ) errors.", errors);
+      end
+    $stop;
+  end
 
 endmodule
