@@ -7,7 +7,7 @@ logic        data_val_i;
 logic [15:0] deser_data_o;
 logic        deser_data_val_o;
 
-deserializer deserializer
+deserializer deserializer_ins
 (
   .clk_i            ( clk_i            ),
   .srst_i           ( srst_i           ),
@@ -17,13 +17,59 @@ deserializer deserializer
   .deser_data_val_o ( deser_data_val_o )
 );
 
+logic [7:0]  errors  = '0;
+logic [15:0] out_exp = '0;
+logic [4:0]  cnt     = '0;
+logic [15:0] expected;
+logic [15:0] outpt;
+logic [8:0]  task_ex = '0;
 
-logic [7:0] errors        = '0;
-logic [18:0] test_vectors [50:0];
-logic [6:0] num_vector    = '0;
+mailbox #(logic [15:0]) mb_expected = new();
+mailbox #(logic [15:0]) mb_real     = new();
 
-logic [15:0] o_expected;
-logic o_val_expected;
+
+task generate_data();
+  while( task_ex < 9'd511 )
+    begin
+      ##1;
+      data_i     <= $urandom_range(0, 1);
+      data_val_i <= $urandom_range(0, 1);
+      task_ex    <= task_ex + 7'd1;
+      
+      if( data_val_i === 1'b1 )
+        begin
+          if( cnt !== 5'd16 )
+            begin
+              cnt <= cnt + 5'd1;
+              out_exp[15 - cnt] <= data_i;
+            end
+          else 
+            begin
+              cnt <= 5'd1;
+              out_exp[15] <= data_i;
+              mb_expected.put( out_exp );
+            end
+          
+        end
+      else
+        begin
+          if( cnt === 5'd16 )
+            begin
+              cnt <= 5'd0;
+              mb_expected.put( out_exp );
+            end
+        end
+    end
+endtask
+
+task check_output();
+  forever
+    begin
+      ##1;
+      if( deser_data_val_o === 1'b1 )
+        mb_real.put( deser_data_o );
+    end
+endtask
 
 initial
   begin
@@ -32,42 +78,45 @@ initial
       #5 clk_i = ~clk_i;
   end
 
+default clocking cb
+  @ (posedge clk_i);
+endclocking
 
 initial
   begin
-    $readmemb("test.tv", test_vectors);
-    #25;
-    @( posedge clk_i )
-    srst_i <= 1'b1;
-    @( posedge clk_i )
     srst_i <= 1'b0;
-  end
+    ##1;
+    srst_i <= 1'b1;
+    ##1;
+    srst_i <= 1'b0;
+    $display("Starting tests...");
 
-always @( posedge clk_i )
-  #1 {data_i, data_val_i, o_expected, o_val_expected} = {test_vectors[num_vector][18], test_vectors[num_vector][17], test_vectors[num_vector][16:1], test_vectors[num_vector][0]};
-   
-always @( negedge clk_i )
-  if( ~srst_i )
-    begin
-      if( num_vector != 26 )
-        begin
-          if( deser_data_o !== o_expected )
-            begin
-              $display("deser_data_o failed (%d)", num_vector);
-              errors <= errors + 1;
-            end
-          if( deser_data_val_o !== o_val_expected )
-            begin
-              $display("deser_data_val_o failed (%d)", num_vector);
-              errors <= errors + 1;
-            end
-          num_vector <= num_vector + 1;
-        end
-      else
-        begin
-          $display("%d tests completed with %d errors", num_vector, errors);
-          $stop;
-        end
-    end
+    fork
+      generate_data();
+      check_output();
+    join_any
+    
+    if( mb_expected.num() != mb_real.num() )
+      begin
+        $display("Error: mailbox(es) size. ");
+        $display("Size mailboxes: ( %d ) ( %d )", mb_expected.num(), mb_real.num());
+      end
+    else
+      begin
+        $display("Size mailboxes: ( %d ) ( %d )", mb_expected.num(), mb_real.num());
+        while( mb_expected.num() != 0 )
+          begin
+            mb_expected.get( expected );
+            mb_real.get( outpt );
+            $display("Expected output : ( %b )", expected);
+            $display("Real output:      ( %b )", outpt);
+            $display("----------------");
+            if( expected !== outpt )
+              errors = errors + 1;
+          end
+        $display("Tests completed with ( %d ) errors.", errors);
+      end
+    $stop;
+  end
 
 endmodule
