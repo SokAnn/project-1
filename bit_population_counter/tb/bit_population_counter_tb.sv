@@ -22,12 +22,48 @@ bit_population_counter #(
   .data_val_o       ( data_val_o       )
 );
 
-logic [8:0]                       errors        = '0;
-logic [($clog2(WIDTH)+WIDTH+2):0] test_vectors [50:0];
-logic [6:0]                       num_vector    = '0;
+logic [5:0] errors   = '0;
+logic [5:0] task_ex  = '0;
 
-logic                             val_expected;
-logic [$clog2(WIDTH):0]           o_expected;
+logic [$clog2(WIDTH):0] expected;
+logic [$clog2(WIDTH):0] outpt;
+
+mailbox #( logic [$clog2(WIDTH):0] ) mb_expected = new();
+mailbox #( logic [$clog2(WIDTH):0] ) mb_real     = new();
+
+task generate_data();
+  logic [$clog2(WIDTH):0] temp;
+
+  while( task_ex < 6'd63 )
+    begin
+      ##1;
+      data_i     <= $urandom_range( 0, ( 2 ** WIDTH - 1 ) );
+      data_val_i <= $urandom_range( 0, 1 );
+      
+      if( data_val_i === 1'b1 )
+        begin
+          temp = '0;
+          for( int i = WIDTH - 1; i >= 0; i-- )
+            begin
+              if( data_i[i] == 1'b1 )
+                temp = temp + 1;
+              else
+                continue;
+            end
+          mb_expected.put( temp );
+          task_ex <= task_ex + 7'd1;
+        end
+    end
+endtask
+
+task check_output();
+  forever
+    begin
+      ##1;
+      if( data_val_o === 1'b1 )
+        mb_real.put( data_o );
+    end
+endtask
 
 initial
   begin
@@ -36,41 +72,47 @@ initial
       #5 clk_i = ~clk_i;
   end
 
+default clocking cb
+  @ (posedge clk_i);
+endclocking
+
 initial
   begin
-    $readmemb("test.tv", test_vectors);
-    #7;
-    srst_i <= 1;
-    @( posedge clk_i )
     srst_i <= 0;
+    ##1;
+    srst_i <= 1;
+    ##1;
+    srst_i <= 0;
+    
+    $display("Starting tests...");
+    
+    fork
+      generate_data();
+      check_output();
+    join_any
+    
+    if( mb_expected.num() != mb_real.num() )
+      begin
+        $display("Error: mailbox(es) size. ");
+        $display("Size mailboxes: ( %d ) ( %d )", mb_expected.num(), mb_real.num());
+      end
+    else
+      begin
+        $display("Size mailboxes: ( %d ) ( %d )", mb_expected.num(), mb_real.num());
+        while( mb_expected.num() != 0 )
+          begin
+            mb_expected.get( expected );
+            mb_real.get( outpt );
+            $display("Expected output : ( %b )", expected);
+            $display("Real output:      ( %b )", outpt);
+            $display("----------------");
+            if( expected !== outpt )
+              errors = errors + 1;
+          end
+        $display("Tests completed with ( %d ) errors.", errors);
+      end
+    
+    $stop;
   end
-
-always @( posedge clk_i )
-  #1 {data_i, data_val_i, val_expected, o_expected} = { test_vectors[num_vector][$clog2(WIDTH)+WIDTH+2:$clog2(WIDTH)+3], test_vectors[num_vector][$clog2(WIDTH)+2], 
-                                                        test_vectors[num_vector][$clog2(WIDTH)+1], test_vectors[num_vector][$clog2(WIDTH):0] };
-   
-always @( negedge clk_i )
-  if( !srst_i )
-    begin
-      if( num_vector != 20 )
-        begin
-          if( data_val_o !== val_expected )
-            begin
-              $display("data_val_o failed (%d)", num_vector);
-              errors <= errors + 1;
-            end
-          if( data_o !== o_expected )
-            begin
-              $display("data_o failed (%d)", num_vector);
-              errors <= errors + 1;
-            end
-          num_vector <= num_vector + 1;
-        end
-      else
-        begin
-          $display("%d tests completed with %d errors", num_vector, errors);
-          $stop;
-        end
-    end
-
+      
 endmodule
