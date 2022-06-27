@@ -42,14 +42,7 @@ task generate_data();
       
       if( data_val_i === 1'b1 )
         begin
-          temp = '0;
-          for( int i = WIDTH - 1; i >= 0; i-- )
-            begin
-              if( data_i[i] == 1'b1 )
-                temp = temp + 1;
-              else
-                continue;
-            end
+          temp = $countones( data_i );
           mb_expected.put( temp );
           task_ex <= task_ex + 7'd1;
         end

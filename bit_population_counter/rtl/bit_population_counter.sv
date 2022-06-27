@@ -27,21 +27,16 @@ always_ff @( posedge clk_i )
     if( srst_i )
       data_val_o <= '0;
     else
-      if( data_val_i )
-        data_val_o <= 1'b1;
-      else
-        data_val_o <= 1'b0;
+      data_val_o <= data_val_i;
   end
 
 always_comb
   begin
     temp = '0;
-    for( int i = 0; i <= WIDTH - 1; i++ )
+    for( int i = 0; i < WIDTH; i++ )
       begin
         if( data_i[i] == 1'b1 )
           temp = temp + 1'(1);
-        else
-          continue;
       end
   end
 
