@@ -11,9 +11,17 @@ module deserializer (
 logic [4:0]  temp_bit;
 logic [15:0] temp;
 
-assign deser_data_o = ( ( deser_data_val_o ) && ( temp_bit == 5'd16 ) ) ? ( temp ) : ( deser_data_o );
+logic [15:0] buff;
 
-assign deser_data_val_o = ( temp_bit == 5'd16 ) ? ( 1'b1 ) : ( 1'b0 );
+assign deser_data_o = ( ( deser_data_val_o ) && ( temp_bit == 5'd16 ) ) ? ( temp ) : ( buff );
+
+always_ff @( posedge clk_i )
+  begin
+    if( temp_bit == 5'd16 )
+      buff <= temp;
+  end
+
+assign deser_data_val_o = ( temp_bit == 5'd16 );
 
 // temp bit logic
 always_ff @( posedge clk_i )
