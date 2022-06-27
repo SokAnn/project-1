@@ -13,7 +13,7 @@ logic [15:0] temp;
 
 logic [15:0] buff;
 
-assign deser_data_o = ( ( deser_data_val_o ) && ( temp_bit == 5'd16 ) ) ? ( temp ) : ( buff );
+assign deser_data_o = ( deser_data_val_o ) ? ( temp ) : ( buff );
 
 always_ff @( posedge clk_i )
   begin
