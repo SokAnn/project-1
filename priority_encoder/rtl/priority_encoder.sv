@@ -36,15 +36,13 @@ always_ff @( posedge clk_i )
 always_comb
   begin
   data_left = '0;
-  for( int i = WIDTH - 1; i >= 0; i-- )
+  for( int i = WIDTH - 1; i > -1; i-- )
     begin
       if( data_i[i] == 1'b1 )
         begin
           data_left[i] = 1'b1;
           break;
         end
-      else
-        continue;
     end
   end
 
@@ -52,15 +50,13 @@ always_comb
 always_comb
   begin
   data_right = '0;
-  for( int i = 0; i <= WIDTH - 1; i++ )
+  for( int i = 0; i < WIDTH; i++ )
     begin
       if( data_i[i] == 1'b1 )
         begin
           data_right[i] = 1'b1;
           break;
         end
-      else
-        continue;
     end
   end
 
@@ -70,10 +66,7 @@ always_ff @( posedge clk_i )
     if( srst_i )
       deser_data_val_o <= 1'b0;
     else
-      if( data_val_i )
-        deser_data_val_o <= 1'b1;
-      else
-        deser_data_val_o <= 1'b0;
+      deser_data_val_o <= data_val_i;
   end
 
 endmodule
