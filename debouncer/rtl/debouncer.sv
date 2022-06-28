@@ -13,8 +13,11 @@ logic d1;
 logic d2;
 logic flag;
 
-logic [$clog2(GLITCH_TIME_NS):0] counter    = '0;
-logic [$clog2(GLITCH_TIME_NS):0] glitch_cnt = '0;
+logic [$clog2(GLITCH_TIME_NS):0] counter       = '0;
+logic [$clog2(GLITCH_TIME_NS):0] glitch_cnt    = '0;
+
+localparam T_NS   = 1000 / CLK_FREQ_MHZ;
+
 
 // d1 logic
 always_ff @( posedge clk_i )
@@ -31,52 +34,39 @@ always_ff @( posedge clk_i )
 // counter logic
 always_ff @( posedge clk_i )
   begin
-    if( counter < ( GLITCH_TIME_NS - ( 1000 / CLK_FREQ_MHZ ) ) )
-      if( d1 != d2 )
-        counter <= counter + ($clog2(GLITCH_TIME_NS))'( 1000 / CLK_FREQ_MHZ );
+    if( d1 !== d2 )
+      counter <= '0;
+    else
+      if( glitch_cnt == 0 )
+        if( counter < GLITCH_TIME_NS - 2 * T_NS )
+          counter <= counter + ($clog2(GLITCH_TIME_NS))'( T_NS );
+        else
+          counter <= '0;
       else
         counter <= '0;
-    else
-      counter <= '0;
   end
 
 // glitch_cnt logic
 always_ff @( posedge clk_i )
   begin
-    if( counter < ( GLITCH_TIME_NS - ( 1000 / CLK_FREQ_MHZ ) ) )
-      if( d1 != d2 )
-        glitch_cnt <= glitch_cnt + 1'(1);
-      else
-         glitch_cnt <= '0;
+    if( flag )
+      glitch_cnt <= glitch_cnt + ($clog2(GLITCH_TIME_NS))'(1);
     else
-      glitch_cnt <= '0;
+      if( d1 !== d2 )
+        glitch_cnt <= '0;
   end
 
 // flag logic
 always_ff @( posedge clk_i )
   begin
-    if( counter < ( GLITCH_TIME_NS - ( 1000 / CLK_FREQ_MHZ ) ) )
-      if( d1 != d2 )
-        flag <= 1'b0;
-      else
-        begin
-          flag <= 1'b0;
-
-          if( d1 == d2 && d2 == 1 && glitch_cnt == 1 )
-            flag <= 1'b1;
-          else
-            if( d1 == d2 && d2 == 1 && glitch_cnt > 1 )
-              flag  <= 1'b1;
-        end
+    if( counter == ( GLITCH_TIME_NS - 3 * T_NS ) )
+      flag <= 1'b1;
     else
-      begin
-        if( glitch_cnt <= ( counter / ( 1000 / CLK_FREQ_MHZ ) ) )
-          flag <= 1'b1;
-        else
-          flag <= 1'b0;
-      end
+      flag <= 1'b0;
   end
 
-assign key_pressed_stb_o = ( d1 != d2 ) ? ( ( d1 ^^ d2 ) && flag ) : ( flag );
+// key pressed logic
+assign key_pressed_stb_o = ( flag &&  d1 === d2  ) ? ( 1'b1 ) : ( 1'b0 );
 
 endmodule
+ 
