@@ -20,39 +20,94 @@ debouncer #(
   .key_pressed_stb_o ( key_pressed_stb_o )
 );
 
-logic [1:0] test_vectors [50:0];
-logic [4:0] errors         = '0;
-logic [4:0] num_vector     = '0;
+logic [5:0] errors  = '0;
+logic [7:0] task_ex = '0;
+logic       expected;
+logic       real_out;
 
-logic o_expected;
+logic [$clog2(GLITCH_TIME_NS):0] cnt = '0;
+
+mailbox #( logic ) mb_exp  = new();
+mailbox #( logic ) mb_real = new();
+
+logic temp_out = 1'b0;
+
+parameter WAIT_TICK = GLITCH_TIME_NS / (1000 / CLK_FREQ_MHZ);
+
+task gen_data();
+  logic temp;
+
+  while( task_ex < 8'd254 )
+    begin
+      ##1;
+      key_i <= $urandom_range(0, 1);
+      temp  <= key_i;
+
+      if( temp === key_i )
+        begin
+          cnt <= cnt + ($clog2(GLITCH_TIME_NS))'(1);
+          if( cnt === ( WAIT_TICK - 2 ) )
+            temp_out = 1'b1;
+          else
+            temp_out = 1'b0;
+        end
+      else
+        begin
+          cnt <= '0;
+          temp_out = 1'b0;
+        end
+      mb_exp.put( temp_out );
+      task_ex <= task_ex + 8'd1;
+    end
+endtask
+
+task check_output();
+  forever
+    begin
+      ##1;
+      mb_real.put( key_pressed_stb_o );
+    end
+endtask
 
 initial
   begin
-    $readmemb("test.tv", test_vectors);
     clk_i = 0;
     forever
       #( 1000 / CLK_FREQ_MHZ / 2) clk_i = !clk_i;
   end
 
-always @( posedge clk_i )
-  #1 {key_i, o_expected} = {test_vectors[num_vector][1], test_vectors[num_vector][0]};
+default clocking cb
+  @ (posedge clk_i);
+endclocking
 
-always @( negedge clk_i )
+initial
   begin
-    if( num_vector != 24 )
+    $display("Starting tests...");
+    
+    fork
+      gen_data();
+      check_output();
+    join_any
+    
+    if( mb_exp.num() != mb_real.num() )
       begin
-        if( key_pressed_stb_o != o_expected )
-          begin
-            $display("output failed (%d)", num_vector);
-            errors <= errors + 1;
-          end
-        num_vector <= num_vector + 1;
+        $display("Error: mailbox(es) size. ");
+        $display("Size mailboxes: ( %d ) ( %d )", mb_exp.num(), mb_real.num());
       end
     else
       begin
-        $display("%d tests completed with %d errors", num_vector, errors);
-        $stop;
+        $display("Size mailboxes: ( %d ) ( %d )", mb_exp.num(), mb_real.num());
+        while( mb_exp.num() != 0 )
+          begin
+            mb_exp.get( expected );
+            mb_real.get( real_out );
+            //$display("Expected/Real output : ( %b )( %b )", expected, real_out);
+            if( expected !== real_out )
+              errors = errors + 1;
+          end
+        $display("Tests completed with ( %d ) errors.", errors);
       end
+    $stop; 
   end
 
 endmodule
