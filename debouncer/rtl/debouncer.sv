@@ -13,7 +13,7 @@ logic d1;
 logic d2;
 logic flag;
 
-logic [$clog2(GLITCH_TIME_NS):0] counter = '0;
+logic [$clog2(GLITCH_TIME_NS):0] counter = '1;
 
 localparam CLK_PERIOD_NS = 1000 / CLK_FREQ_MHZ;
 localparam WAIT_HW_TICK  = GLITCH_TIME_NS / CLK_PERIOD_NS;
@@ -37,14 +37,16 @@ always_ff @( posedge clk_i )
     if( d1 != d2 )
       counter <= '0;
     else
-      if( counter == ( WAIT_HW_TICK - 1) )
-        counter <= '0;
-      else
-        counter <= counter + ($clog2(GLITCH_TIME_NS))'(1);
+      if( counter != '1 )
+        if( counter == ( WAIT_HW_TICK - 2) )
+          counter <= '1;
+        else
+          counter <= counter + ($clog2(GLITCH_TIME_NS))'(1);
   end
 
-assign flag = ( counter == ( WAIT_HW_TICK - 2) ) ? ( 1'b1 ) : ( 1'b0 );
+assign flag = ( counter == ( WAIT_HW_TICK - 2) );
 
-assign key_pressed_stb_o = ( flag &&  d1 == d2  ) ? ( 1'b1 ) : ( 1'b0 );
+assign key_pressed_stb_o = ( flag && d1 == d2 );
 
 endmodule
+
