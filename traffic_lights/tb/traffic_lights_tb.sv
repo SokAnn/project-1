@@ -2,9 +2,10 @@
 
 module traffic_lights_tb;
 
-parameter BLINK_Y_MS  = 8;
-parameter G_BLINK_T   = 4;
-parameter RY_MS       = 3;
+parameter BLINK_Y_MS = 8;
+parameter G_BLINK_T  = 4;
+parameter RY_MS      = 3;
+parameter LOOP_SIZE  = 7;
 
 logic        clk_i;
 logic        srst_i;
@@ -33,7 +34,6 @@ traffic_lights #(
 );
 
 logic [15:0] errors = '0;
-logic [2:0] N       = 3'd7;
 logic [15:0] cnt    = '0;
 logic [15:0] r      = '0;
 logic [15:0] y      = '0;
@@ -104,7 +104,7 @@ initial
     srst_i <= 1'b0;
     
     $display("Starting tests...");
-    while( N > 3'd0 )
+    repeat( LOOP_SIZE )
       begin
         configuration( 3'd0, $urandom_range(1, 10) );
         configuration( 3'd4, $urandom_range(1, 10) );
@@ -115,8 +115,6 @@ initial
         check_out( r, 2'd0 );
 
         configuration( 3'd1, $urandom_range(1, 15) );
-
-        N = N - 3'd1;
       end
     $display("Tests completed with ( %d ) errors.", errors );
     $stop;
