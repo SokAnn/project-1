@@ -2,8 +2,10 @@
 
 module debouncer_tb;
 
-parameter CLK_FREQ_MHZ   = 10;
-parameter GLITCH_TIME_NS = 500;
+parameter CLK_FREQ_MHZ   = 100;
+parameter GLITCH_TIME_NS = 70;
+
+parameter TEST_LENGTH    = 2000000;
 
 logic clk_i;
 logic key_i;
@@ -20,12 +22,12 @@ debouncer #(
   .key_pressed_stb_o ( key_pressed_stb_o )
 );
 
-logic [5:0] errors  = '0;
-logic [7:0] task_ex = '0;
-logic       expected;
-logic       real_out;
-
+logic [5:0]                      errors  = '0;
+logic                            expected;
+logic                            real_out;
 logic [$clog2(GLITCH_TIME_NS):0] cnt = '0;
+
+int task_l = 0;
 
 mailbox #( logic ) mb_exp  = new();
 mailbox #( logic ) mb_real = new();
@@ -37,27 +39,27 @@ parameter WAIT_TICK = GLITCH_TIME_NS / (1000 / CLK_FREQ_MHZ);
 task gen_data();
   logic temp;
 
-  while( task_ex < 8'd254 )
+  while( task_l < TEST_LENGTH )
     begin
       ##1;
       key_i <= $urandom_range(0, 1);
       temp  <= key_i;
 
-      if( temp === key_i )
+      if( temp === 1'b0 )
         begin
-          cnt <= cnt + ($clog2(GLITCH_TIME_NS))'(1);
-          if( cnt === ( WAIT_TICK - 2 ) )
-            temp_out = 1'b1;
-          else
-            temp_out = 1'b0;
+          if( cnt < WAIT_TICK - 1 )
+            cnt <= cnt + 1;
         end
       else
-        begin
-          cnt <= '0;
-          temp_out = 1'b0;
-        end
+        cnt <= '0;
+      
+      if( cnt === WAIT_TICK - 2 )
+        temp_out = 1'b1;
+      else
+        temp_out = 1'b0;
+
       mb_exp.put( temp_out );
-      task_ex <= task_ex + 8'd1;
+      task_l <= task_l + 1;
     end
 endtask
 
@@ -83,7 +85,7 @@ endclocking
 initial
   begin
     $display("Starting tests...");
-    
+    //key_i <= 1'b1;
     fork
       gen_data();
       check_output();
@@ -107,7 +109,7 @@ initial
           end
         $display("Tests completed with ( %d ) errors.", errors);
       end
-    $stop; 
+    $stop;
   end
 
 endmodule
