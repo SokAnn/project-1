@@ -19,10 +19,13 @@ state_type state, next_state;
 
 logic yellow_l, green_l;
 
-logic [15:0] count;
-logic [15:0] red_ms;
-logic [15:0] yellow_ms;
-logic [15:0] green_ms;
+logic [16:0] count;
+logic [16:0] red_ms;
+logic [16:0] yellow_ms;
+logic [16:0] green_ms;
+
+localparam RY_T = STATE_RY_MS * 2 - 1;
+localparam YB_T = BLINK_Y_MS * 2 - 1;
 
 // state register
 always_ff @( posedge clk_i )
@@ -39,11 +42,11 @@ always_ff @( posedge clk_i )
       if( cmd_valid_i )
         begin
           if( cmd_type_i == 4 )
-            red_ms <= cmd_data_i;
+            red_ms    <= cmd_data_i * 2'd2 - 1'(1);
           else if( cmd_type_i == 5 )
-            yellow_ms <= cmd_data_i;
+            yellow_ms <= cmd_data_i * 2'd2 - 1'(1);
           else if( cmd_type_i == 3 )
-            green_ms <= cmd_data_i;
+            green_ms  <= cmd_data_i * 2'd2 - 1'(1);
         end
   end
 
@@ -57,7 +60,7 @@ always_ff @( posedge clk_i )
         case( state )
           RED_S:
             begin
-              if( count < ( red_ms * 2 - 1 ) )
+              if( count < ( red_ms ) )
                 count <= count + 1'(1);
               else
                 count <= '0;
@@ -65,7 +68,7 @@ always_ff @( posedge clk_i )
 
           RED_YELLOW_S:
             begin
-              if( count < ( STATE_RY_MS * 2 - 1 ) )
+              if( count < ( RY_T ) )
                 count <= count + 1'(1);
               else
                 count <= '0;
@@ -73,7 +76,7 @@ always_ff @( posedge clk_i )
 
           GREEN_S:
             begin
-              if( count < ( green_ms * 2 - 1 ) )
+              if( count < ( green_ms ) )
                 count <= count + 1'(1);
               else
                 count <= '0;
@@ -89,7 +92,7 @@ always_ff @( posedge clk_i )
 
           YELLOW_S:
             begin
-              if( count < ( yellow_ms * 2 - 1 ) )
+              if( count < ( yellow_ms ) )
                 count <= count + 1'(1);
               else
                 count <= '0;
@@ -100,12 +103,12 @@ always_ff @( posedge clk_i )
               if( next_state == RED_S )
                 count <= '0;
               else
-                if( count < ( BLINK_Y_MS * 2 - 1 ) )
+                if( count < ( YB_T ) )
                   count <= count + 1'(1);
                 else
                   count <= '0;
             end
-        endcase  
+        endcase
       end
   end
 
@@ -170,7 +173,7 @@ always_comb
             next_state = OFF_S;
           else if( ( cmd_type_i == 2 ) && cmd_valid_i )
             next_state = YELLOW_BLINKS_S;
-          else if( count >= ( red_ms * 2 - 1 ) )
+          else if( count >= ( red_ms ) )
             next_state = RED_YELLOW_S;
         end
 
@@ -180,7 +183,7 @@ always_comb
             next_state = OFF_S;
           else if( ( cmd_type_i == 2 ) && cmd_valid_i )
             next_state = YELLOW_BLINKS_S;
-          else if( count >= ( STATE_RY_MS * 2 - 1 ) )
+          else if( count >= ( RY_T ) )
             next_state = GREEN_S;
         end
 
@@ -190,7 +193,7 @@ always_comb
             next_state = OFF_S;
           else if( ( cmd_type_i == 2 ) && cmd_valid_i )
             next_state = YELLOW_BLINKS_S;
-          else if( count >= ( green_ms * 2 - 1 ) )
+          else if( count >= ( green_ms ) )
             next_state = GREEN_BLINKS_S;
         end
 
@@ -210,7 +213,7 @@ always_comb
             next_state = OFF_S;
           else if( ( cmd_type_i == 2 ) && cmd_valid_i )
             next_state = YELLOW_BLINKS_S;
-          else if( count >= ( yellow_ms * 2 - 1 ) )
+          else if( count >= ( yellow_ms ) )
             next_state = RED_S;
         end
 
